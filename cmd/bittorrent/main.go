@@ -62,6 +62,11 @@ func run(args []string, stdout, stderr io.Writer) int {
 		fmt.Fprintf(stdout, "Tracker URL: %s\n", metadata.TrackerURL)
 		fmt.Fprintf(stdout, "Length: %d\n", metadata.Length)
 		fmt.Fprintf(stdout, "Info Hash: %x\n", metadata.Hash)
+		fmt.Fprintf(stdout, "Piece Length: %d\n", metadata.PieceLength)
+		fmt.Fprintln(stdout, "Piece Hashes:")
+		for _, pieceHash := range metadata.PieceHashes {
+			fmt.Fprintf(stdout, "%x\n", pieceHash)
+		}
 		return 0
 
 	default:
