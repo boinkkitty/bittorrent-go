@@ -10,6 +10,7 @@ import (
 	"net/netip"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/boinkkitty/bittorrent-go/internal/bencode"
 	"github.com/boinkkitty/bittorrent-go/internal/torrent"
@@ -18,8 +19,11 @@ import (
 func TestNewClientUsesTrackerDefaults(t *testing.T) {
 	client := NewClient(nil)
 
-	if client.httpClient != http.DefaultClient {
-		t.Fatalf("NewClient(nil) HTTP client = %p, want http.DefaultClient", client.httpClient)
+	if client.httpClient == http.DefaultClient {
+		t.Fatal("NewClient(nil) uses http.DefaultClient without a request timeout")
+	}
+	if client.httpClient.Timeout != 30*time.Second {
+		t.Fatalf("NewClient(nil) HTTP timeout = %s, want 30s", client.httpClient.Timeout)
 	}
 	wantPeerID := [sha1.Size]byte([]byte("-BG0001-123456789012"))
 	if client.peerID != wantPeerID {

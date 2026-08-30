@@ -10,6 +10,7 @@ import (
 	"net/netip"
 	"net/url"
 	"strconv"
+	"time"
 
 	"github.com/boinkkitty/bittorrent-go/internal/bencode"
 	"github.com/boinkkitty/bittorrent-go/internal/torrent"
@@ -32,7 +33,7 @@ type Client struct {
 
 func NewClient(httpClient *http.Client) *Client {
 	if httpClient == nil {
-		httpClient = http.DefaultClient
+		httpClient = &http.Client{Timeout: 30 * time.Second}
 	}
 
 	return &Client{
@@ -40,6 +41,12 @@ func NewClient(httpClient *http.Client) *Client {
 		peerID:     defaultPeerID,
 		port:       defaultPort,
 	}
+}
+
+func NewClientWithPeerID(httpClient *http.Client, peerID [sha1.Size]byte) *Client {
+	client := NewClient(httpClient)
+	client.peerID = peerID
+	return client
 }
 
 func (c *Client) Peers(ctx context.Context, metadata torrent.Metadata) ([]Peer, error) {

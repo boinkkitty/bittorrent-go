@@ -2,10 +2,14 @@ package main
 
 import (
 	"context"
+	"crypto/rand"
+	"crypto/sha1"
 	"encoding/json"
 	"fmt"
 	"io"
+	"net/netip"
 	"os"
+	"strconv"
 
 	"github.com/boinkkitty/bittorrent-go/internal/bencode"
 	"github.com/boinkkitty/bittorrent-go/internal/peer"
@@ -124,6 +128,76 @@ func run(args []string, stdout, stderr io.Writer) int {
 			return 1
 		}
 		fmt.Fprintf(stdout, "Peer ID: %x\n", remotePeerID)
+		return 0
+
+	case "download_piece":
+		if len(args) != 5 || args[1] != "-o" {
+			fmt.Fprintln(stderr, "usage: bittorrent download_piece -o <output-path> <torrent-file> <piece-index>")
+			return 1
+		}
+
+		pieceIndex, err := strconv.Atoi(args[4])
+		if err != nil {
+			fmt.Fprintf(stderr, "invalid piece index %q: %v\n", args[4], err)
+			return 1
+		}
+		data, err := os.ReadFile(args[3])
+		if err != nil {
+			fmt.Fprintln(stderr, err)
+			return 1
+		}
+		metadata, err := torrent.Parse(data)
+		if err != nil {
+			fmt.Fprintln(stderr, err)
+			return 1
+		}
+		pieceLength, err := metadata.PieceSize(pieceIndex)
+		if err != nil {
+			fmt.Fprintln(stderr, err)
+			return 1
+		}
+
+		var sessionPeerID [sha1.Size]byte
+		if _, err := io.ReadFull(rand.Reader, sessionPeerID[:]); err != nil {
+			fmt.Fprintf(stderr, "generate peer ID: %v\n", err)
+			return 1
+		}
+		availablePeers, err := tracker.NewClientWithPeerID(nil, sessionPeerID).Peers(context.Background(), metadata)
+		if err != nil {
+			fmt.Fprintln(stderr, err)
+			return 1
+		}
+		if len(availablePeers) == 0 {
+			fmt.Fprintln(stderr, "tracker returned no peers")
+			return 1
+		}
+
+		peerClient := peer.NewClientWithPeerID(sessionPeerID)
+		var pieceData []byte
+		var lastPeerError error
+		for _, availablePeer := range availablePeers {
+			address := netip.AddrPortFrom(availablePeer.IP, availablePeer.Port).String()
+			pieceData, lastPeerError = peerClient.DownloadPiece(
+				context.Background(),
+				address,
+				metadata.Hash,
+				pieceIndex,
+				pieceLength,
+				metadata.PieceHashes[pieceIndex],
+			)
+			if lastPeerError == nil {
+				break
+			}
+		}
+		if lastPeerError != nil {
+			fmt.Fprintf(stderr, "download piece %d: all peers failed: %v\n", pieceIndex, lastPeerError)
+			return 1
+		}
+		if err := os.WriteFile(args[2], pieceData, 0o644); err != nil {
+			fmt.Fprintf(stderr, "write piece to %q: %v\n", args[2], err)
+			return 1
+		}
+		fmt.Fprintf(stdout, "Piece %d downloaded to %s.\n", pieceIndex, args[2])
 		return 0
 
 	default:

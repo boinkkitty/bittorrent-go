@@ -68,3 +68,67 @@ func TestParseRejectsInvalidTorrentMetadata(t *testing.T) {
 		})
 	}
 }
+
+func TestMetadataPieceSize(t *testing.T) {
+	metadata := Metadata{
+		Length:      40000,
+		PieceLength: 16384,
+		PieceHashes: make([][sha1.Size]byte, 3),
+	}
+
+	tests := []struct {
+		index int
+		want  int
+	}{
+		{index: 0, want: 16384},
+		{index: 1, want: 16384},
+		{index: 2, want: 7232},
+	}
+	for _, tt := range tests {
+		got, err := metadata.PieceSize(tt.index)
+		if err != nil {
+			t.Fatalf("PieceSize(%d) error = %v", tt.index, err)
+		}
+		if got != tt.want {
+			t.Errorf("PieceSize(%d) = %d, want %d", tt.index, got, tt.want)
+		}
+	}
+}
+
+func TestMetadataPieceSizeRejectsInvalidIndex(t *testing.T) {
+	metadata := Metadata{
+		Length:      40000,
+		PieceLength: 16384,
+		PieceHashes: make([][sha1.Size]byte, 3),
+	}
+
+	for _, index := range []int{-1, 3} {
+		if _, err := metadata.PieceSize(index); err == nil {
+			t.Errorf("PieceSize(%d) error = nil, want an error", index)
+		}
+	}
+}
+
+func TestMetadataPieceSizeRejectsInconsistentPieceCount(t *testing.T) {
+	metadata := Metadata{
+		Length:      1,
+		PieceLength: 16384,
+		PieceHashes: make([][sha1.Size]byte, 2),
+	}
+
+	if _, err := metadata.PieceSize(0); err == nil {
+		t.Fatal("PieceSize(0) error = nil, want inconsistent piece count error")
+	}
+}
+
+func TestMetadataPieceSizeRejectsExcessivePieceLength(t *testing.T) {
+	metadata := Metadata{
+		Length:      64*1024*1024 + 1,
+		PieceLength: 64*1024*1024 + 1,
+		PieceHashes: make([][sha1.Size]byte, 1),
+	}
+
+	if _, err := metadata.PieceSize(0); err == nil {
+		t.Fatal("PieceSize(0) error = nil, want excessive piece length error")
+	}
+}
