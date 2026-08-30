@@ -1,6 +1,7 @@
 package torrent
 
 import (
+	"crypto/sha1"
 	"fmt"
 
 	"github.com/boinkkitty/bittorrent-go/internal/bencode"
@@ -9,6 +10,7 @@ import (
 type Metadata struct {
 	TrackerURL string
 	Length     int
+	Hash       [20]byte
 }
 
 func Parse(data []byte) (Metadata, error) {
@@ -37,8 +39,15 @@ func Parse(data []byte) (Metadata, error) {
 		return Metadata{}, fmt.Errorf("torrent metadata has invalid info.length field")
 	}
 
+	encodedInfo, err := bencode.Encode(info)
+	if err != nil {
+		return Metadata{}, fmt.Errorf("encode torrent info: %w", err)
+	}
+	hash := sha1.Sum(encodedInfo)
+
 	return Metadata{
 		TrackerURL: trackerURL,
 		Length:     length,
+		Hash:       hash,
 	}, nil
 }

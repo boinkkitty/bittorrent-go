@@ -2,6 +2,8 @@ package main
 
 import (
 	"bytes"
+	"crypto/sha1"
+	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
@@ -21,8 +23,13 @@ func TestRunInfoPrintsTrackerURLAndLength(t *testing.T) {
 	if exitCode != 0 {
 		t.Fatalf("run() exit code = %d, want 0; stderr: %s", exitCode, stderr.String())
 	}
-	if got, want := stdout.String(), "Tracker URL: http://tracker\nLength: 92063\n"; got != want {
-		t.Fatalf("run() stdout = %q, want %q", got, want)
+	infoHash := sha1.Sum([]byte("d6:lengthi92063ee"))
+	wantOutput := fmt.Sprintf(
+		"Tracker URL: http://tracker\nLength: 92063\nInfo Hash: %x\n",
+		infoHash,
+	)
+	if got := stdout.String(); got != wantOutput {
+		t.Fatalf("run() stdout = %q, want %q", got, wantOutput)
 	}
 	if got := stderr.String(); got != "" {
 		t.Fatalf("run() stderr = %q, want empty output", got)

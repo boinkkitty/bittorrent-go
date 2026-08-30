@@ -2,19 +2,22 @@ package torrent
 
 import (
 	"bytes"
+	"crypto/sha1"
 	"testing"
 )
 
 func TestParseSingleFileTorrent(t *testing.T) {
-	data := []byte(
-		"d8:announce14:http://tracker" +
-			"4:infod6:lengthi92063e" +
+	info := []byte(
+		"d6:lengthi92063e" +
 			"4:name4:test" +
 			"12:piece lengthi16384e" +
 			"6:pieces20:",
 	)
-	data = append(data, bytes.Repeat([]byte{0xff}, 20)...)
-	data = append(data, 'e', 'e')
+	info = append(info, bytes.Repeat([]byte{0xff}, 20)...)
+	info = append(info, 'e')
+
+	data := append([]byte("d8:announce14:http://tracker4:info"), info...)
+	data = append(data, 'e')
 
 	got, err := Parse(data)
 	if err != nil {
@@ -24,6 +27,7 @@ func TestParseSingleFileTorrent(t *testing.T) {
 	want := Metadata{
 		TrackerURL: "http://tracker",
 		Length:     92063,
+		Hash:       sha1.Sum(info),
 	}
 	if got != want {
 		t.Fatalf("Parse() = %#v, want %#v", got, want)
