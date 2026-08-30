@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -8,6 +9,7 @@ import (
 
 	"github.com/boinkkitty/bittorrent-go/internal/bencode"
 	"github.com/boinkkitty/bittorrent-go/internal/torrent"
+	"github.com/boinkkitty/bittorrent-go/internal/tracker"
 )
 
 func main() {
@@ -66,6 +68,34 @@ func run(args []string, stdout, stderr io.Writer) int {
 		fmt.Fprintln(stdout, "Piece Hashes:")
 		for _, pieceHash := range metadata.PieceHashes {
 			fmt.Fprintf(stdout, "%x\n", pieceHash)
+		}
+		return 0
+
+	case "peers":
+		if len(args) != 2 {
+			fmt.Fprintln(stderr, "usage: bittorrent peers <torrent-file>")
+			return 1
+		}
+
+		data, err := os.ReadFile(args[1])
+		if err != nil {
+			fmt.Fprintln(stderr, err)
+			return 1
+		}
+
+		metadata, err := torrent.Parse(data)
+		if err != nil {
+			fmt.Fprintln(stderr, err)
+			return 1
+		}
+
+		peers, err := tracker.NewClient(nil).Peers(context.Background(), metadata)
+		if err != nil {
+			fmt.Fprintln(stderr, err)
+			return 1
+		}
+		for _, peer := range peers {
+			fmt.Fprintf(stdout, "%s:%d\n", peer.IP, peer.Port)
 		}
 		return 0
 
