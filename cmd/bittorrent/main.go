@@ -8,6 +8,7 @@ import (
 	"os"
 
 	"github.com/boinkkitty/bittorrent-go/internal/bencode"
+	"github.com/boinkkitty/bittorrent-go/internal/peer"
 	"github.com/boinkkitty/bittorrent-go/internal/torrent"
 	"github.com/boinkkitty/bittorrent-go/internal/tracker"
 )
@@ -97,6 +98,32 @@ func run(args []string, stdout, stderr io.Writer) int {
 		for _, peer := range peers {
 			fmt.Fprintf(stdout, "%s:%d\n", peer.IP, peer.Port)
 		}
+		return 0
+
+	case "handshake":
+		if len(args) != 3 {
+			fmt.Fprintln(stderr, "usage: bittorrent handshake <torrent-file> <peer-address>")
+			return 1
+		}
+
+		data, err := os.ReadFile(args[1])
+		if err != nil {
+			fmt.Fprintln(stderr, err)
+			return 1
+		}
+
+		metadata, err := torrent.Parse(data)
+		if err != nil {
+			fmt.Fprintln(stderr, err)
+			return 1
+		}
+
+		remotePeerID, err := peer.NewClient().Handshake(context.Background(), args[2], metadata.Hash)
+		if err != nil {
+			fmt.Fprintln(stderr, err)
+			return 1
+		}
+		fmt.Fprintf(stdout, "Peer ID: %x\n", remotePeerID)
 		return 0
 
 	default:
